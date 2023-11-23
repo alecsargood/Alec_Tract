@@ -4,20 +4,20 @@
 
 #$ -S /bin/bash
 #$ -j y
-#$ -N test_TTL 
-#$ -wd /cluster/project2/CU-MONDAI/ellie_TTL/TrackToLearn
+#$ -N fixed_det
+#$ -wd /cluster/project2/CU-MONDAI/Alec_Tract/TrackToLearn
 
 #$ -l gpu=true
-#$ -o /cluster/project2/CU-MONDAI/ellie_TTL/logs
+#$ -o /cluster/project2/CU-MONDAI/Alec_Tract/logs
 #$ -e /cluster/project2/CU-MONDAI/ellie_TTL/logs 
 
 #$ -l tscratch=20G
 
 source /share/apps/source_files/python/python-3.8.5.source
-source /cluster/project2/CU-MONDAI/ellie_TTL/TrackToLearn/joc_ttl_test/bin/activate 
+source /cluster/project2/CU-MONDAI/Alec_Tract/TrackToLearn/joc_ttl_test/bin/activate 
 source /share/apps/source_files/cuda/cuda-11.0.source
 
-mkdir -p /scratch0/ethompso/$JOB_ID
+mkdir -p /scratch0/asargood/$JOB_ID
 
 DATASET_FOLDER=${TRACK_TO_LEARN_DATA}/
 WORK_DATASET_FOLDER=${LOCAL_TRACK_TO_LEARN_DATA}/
@@ -94,7 +94,7 @@ do
 done
 
 function finish {
-    rm -rf /scratch0/ethompso/$JOB_ID
+    rm -rf /scratch0/asargood/$JOB_ID
 }
 
 trap finish EXIT ERR INT TERM
