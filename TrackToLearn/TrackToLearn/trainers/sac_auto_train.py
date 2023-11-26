@@ -106,7 +106,7 @@ def main():
 
     experiment = CometExperiment(project_name=args.experiment,
                                  workspace='alecsargood',
-                                 api_key = 'eQ6pfPreHQzFB4frzYlCeLiEr',
+                                 api_key='eQ6pfPreHQzFB4frzYlCeLiEr',
                                  parse_args=False,
                                  auto_metric_logging=False,
                                  disabled=not args.use_comet)
