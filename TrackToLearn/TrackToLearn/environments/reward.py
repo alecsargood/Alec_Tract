@@ -18,6 +18,8 @@ from TrackToLearn.datasets.utils import (
 from TrackToLearn.utils.utils import (
     normalize_vectors)
 
+from scipy.optimize import curve_fit
+
 
 class Reward(object):
 
@@ -90,6 +92,7 @@ class Reward(object):
         self.angle_penalty_factor = angle_penalty_factor
         self.scoring_data = scoring_data
         self.reference = reference
+        self.optim_pars = (0, 1, 1, 0, 0, 0)
 
         # if self.scoring_data:
         #     print('WARNING: Rewarding from the Tractometer is not currently '
@@ -148,13 +151,14 @@ class Reward(object):
 
         length = reward_length(streamlines, self.max_nb_steps) \
             if self.length_weighting > 0. else np.zeros((N), dtype=np.uint8)
-        alignment = reward_alignment_with_peaks(
-            streamlines, self.peaks.data, self.asymmetric) \
+        print(self.optim_pars[0])
+        alignment, optim_pars = reward_alignment_with_peaks(
+            streamlines, self.peaks.data, self.asymmetric, self.optim_pars) \
             if self.alignment_weighting > 0 else np.zeros((N), dtype=np.uint8)
+        self.optim_pars = optim_pars
         straightness = reward_straightness(streamlines) \
             if self.straightness_weighting > 0 else \
             np.zeros((N), dtype=np.uint8)
-
         weights = np.asarray([
             self.alignment_weighting, self.straightness_weighting,
             self.length_weighting])
@@ -385,7 +389,7 @@ def reward_length(streamlines, max_length):
 
 
 def reward_alignment_with_peaks(
-    streamlines, peaks, asymmetric
+    streamlines, peaks, asymmetric, optim_pars
 ):
     """ Reward streamlines according to the alignment to their corresponding
         fODFs peaks
@@ -450,7 +454,7 @@ def reward_alignment_with_peaks(
     factors = np.ones((N))
 
     # Weight alignment with peaks with alignment to itself
-    if streamlines.shape[1] >= 3:
+    if streamlines.shape[1] >= 3 and streamlines.shape[1] < 5:
         # Get previous to last segment
         w = dirs[:, -2]
 
@@ -463,11 +467,25 @@ def reward_alignment_with_peaks(
 
         # Calculate alignment between two segments
         np.einsum('ik,ik->i', u, w, out=factors)
+    elif streamlines.shape[1] >= 5:
 
+        x = streamlines[0,-5:-2]
+        y = streamlines[1,-5:-2]
+        z = streamlines[2,-5:-2]
+
+        popt = curve_fit(func, (x, y), z, p0 = optim_pars)
+
+        new_x = streamlines[0,-1]
+        new_y = streamlines[1,-1]
+        new_z = streamlines[2,-1]
+        fitted_z = func((new_x,new_y), *popt)
+
+        diff = np.abs(new_z - fitted_z)
+        factors = np.exp(-diff)
     # Penalize angle with last step
     rewards *= factors
 
-    return rewards
+    return rewards, popt
 
 
 def reward_straightness(streamlines):
@@ -498,3 +516,7 @@ e   """
     reward = np.linalg.norm(end - start, axis=1) / (S * step_size)
 
     return np.clip(reward + 0.5, 0, 1)
+
+def func(xy, a, b, c, d, e, f):
+    x, y = xy
+    return a + b*x + c*y + d*x**2 + e*y**2 + f*x*y
