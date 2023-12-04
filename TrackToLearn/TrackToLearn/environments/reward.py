@@ -18,9 +18,6 @@ from TrackToLearn.datasets.utils import (
 from TrackToLearn.utils.utils import (
     normalize_vectors)
 
-from scipy.optimize import curve_fit
-from numpy import random
-
 
 class Reward(object):
 
@@ -33,6 +30,7 @@ class Reward(object):
         theta: float = 60,
         min_nb_steps: float = 10,
         asymmetric: bool = False,
+        dynamic_stepsize: bool = False,
         alignment_weighting: float = 1.0,
         straightness_weighting: float = 0.0,
         length_weighting: float = 0.0,
@@ -85,6 +83,7 @@ class Reward(object):
         self.theta = theta
         self.min_nb_steps = min_nb_steps
         self.asymmetric = asymmetric
+        self.dynamic_stepsize = dynamic_stepsize
         self.alignment_weighting = alignment_weighting
         self.straightness_weighting = straightness_weighting
         self.length_weighting = length_weighting
@@ -93,6 +92,7 @@ class Reward(object):
         self.angle_penalty_factor = angle_penalty_factor
         self.scoring_data = scoring_data
         self.reference = reference
+
         # if self.scoring_data:
         #     print('WARNING: Rewarding from the Tractometer is not currently '
         #           'officially supported and may not work. If you do want to '
@@ -128,7 +128,7 @@ class Reward(object):
         #         ROIs=ROIs,
         #         compute_ic_ib=False)
 
-    def __call__(self, streamlines, dones):
+    def __call__(self, streamlines, dones, magnitude=None):
         """
         Compute rewards for the last step of the streamlines
         Each reward component is weighted according to a
@@ -147,6 +147,7 @@ class Reward(object):
         """
 
         N = len(streamlines)
+
         length = reward_length(streamlines, self.max_nb_steps) \
             if self.length_weighting > 0. else np.zeros((N), dtype=np.uint8)
         alignment = reward_alignment_with_peaks(
@@ -155,6 +156,7 @@ class Reward(object):
         straightness = reward_straightness(streamlines) \
             if self.straightness_weighting > 0 else \
             np.zeros((N), dtype=np.uint8)
+
         weights = np.asarray([
             self.alignment_weighting, self.straightness_weighting,
             self.length_weighting])
@@ -179,7 +181,12 @@ class Reward(object):
                 streamlines,
                 dones)
 
-        return rewards
+        # do stepsize scaling if using dynamic stepsize
+        if self.dynamic_stepsize:
+            rewards = np.multiply(rewards, magnitude.flatten())
+        
+        return rewards 
+
 
     def reward_target(
         self,
@@ -384,7 +391,7 @@ def reward_length(streamlines, max_length):
     return rewards
 
 
-def reward_alignment_with_peaks(
+def reward_alignment_with_peaks( 
     streamlines, peaks, asymmetric
 ):
     """ Reward streamlines according to the alignment to their corresponding
@@ -402,7 +409,7 @@ def reward_alignment_with_peaks(
     """
     N, L, _ = streamlines.shape
 
-    if L < 2:
+    if streamlines.shape[1] < 2:
         # Not enough segments to compute curvature
         return np.ones(len(streamlines), dtype=np.uint8)
 
@@ -449,25 +456,20 @@ def reward_alignment_with_peaks(
 
     factors = np.ones((N))
 
-    ## Weight alignment with peaks with alignment to itself
-
-
-    num_quad_fit = 6  # Must be at least 6 data points, for 6 params
-    rp = 0.9 # Check this is doing the correct thing
-    if L >= 3 and L < num_quad_fit+1:
+    # Weight alignment with peaks with alignment to itself
+    if streamlines.shape[1] >= 3:
         # Get previous to last segment
-        factors = linear_alignment(u,dirs,np.arange(0,N),factors)
+        w = dirs[:, -2]
 
-    elif L >= num_quad_fit+1:
-        list_inds = np.arange(N)
-        np.random.shuffle(list_inds)
-        quad_inds = list_inds[0:int(np.round(rp*N))]
-        lin_inds = list_inds[int(np.round(rp*N)):]
+        # # Normalize segments
+        with np.errstate(divide='ignore', invalid='ignore'):
+            w = normalize_vectors(w)
 
-        factors = linear_alignment(u,dirs,lin_inds,factors)
-        if len(quad_inds) > 0:
-            factors = quadratic_alignment(streamlines, num_quad_fit, quad_inds, u, dirs, factors)
-            
+        # # Zero NaNs
+        w = np.nan_to_num(w)
+
+        # Calculate alignment between two segments
+        np.einsum('ik,ik->i', u, w, out=factors)
 
     # Penalize angle with last step
     rewards *= factors
@@ -503,56 +505,3 @@ e   """
     reward = np.linalg.norm(end - start, axis=1) / (S * step_size)
 
     return np.clip(reward + 0.5, 0, 1)
-
-def func(xy, a, b, c, d, e, f):
-    x = xy[0,:]
-    y = xy[1,:]
-    return a + b*x + c*y + d*x**2 + e*y**2 + f*x*y
-
-def linear_alignment(u,dirs,inds,factors):
-    
-    dirs = dirs[inds,:,:]
-    u = u[inds,:]
-
-    w = dirs[:, -2]
-
-    # # Normalize segments
-    with np.errstate(divide='ignore', invalid='ignore'):
-        w = normalize_vectors(w)
-
-        # # Zero NaNs
-    w = np.nan_to_num(w)
-
-        # Calculate alignment between two segments
-    np.einsum('ik,ik->i', u, w, out=factors[inds])
-
-    
-    return factors
-
-def quadratic_alignment(streamlines, num_quad_fit, quad_inds, u, dirs, factors):
-
-    for i in quad_inds:
-            
-        xy = streamlines[i,-(num_quad_fit+1):-1,0:2].T
-        z = streamlines[i,-(num_quad_fit+1):-1,2]
-        try:
-            if num_quad_fit == 6: # Can do this analytically (6 eqns for 6 params)
-                x = xy[0,:]
-                y = xy[1,:]
-                # Create matrix corresponding to a + bx + cy + dx^2 + ey^2 + fxy
-                A = np.array([np.ones(num_quad_fit), x, y, x**2, y**2, x*y]).T
-                popt = np.linalg.solve(A,z)
-            else:
-                popt,_ = curve_fit(func, xy, z)
-            new_xy = np.reshape(streamlines[i,-1,0:2],(2,1))
-            new_z = streamlines[i,-1,2]
-            fitted_z = func(new_xy, *popt)
-            diff = np.abs(new_z - fitted_z)  
-            factors[i] = np.exp(-diff)
-        except:
-            factors = linear_alignment(u,dirs,i,factors)
-
-
-        return factors
-    
-
