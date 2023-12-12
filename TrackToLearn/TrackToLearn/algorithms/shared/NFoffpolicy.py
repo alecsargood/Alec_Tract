@@ -9,225 +9,118 @@ from torch.distributions.normal import Normal
 
 from TrackToLearn.algorithms.shared.utils import (
     format_widths, make_fc_network)
+from TrackToLearn.algorithms.shared.offpolicy import Critic, DoubleCritic
 
 LOG_STD_MAX = 2
 LOG_STD_MIN = -20
 
+class PlanarFlow(nn.Module):
+    def __init__(self, data_dim):
+        super(PlanarFlow, self).__init__()
 
-class Actor(nn.Module):
-    """ Actor module that takes in a state and outputs an action.
-    Its policy is the neural network layers
-    """
+        self.u = nn.Parameter(torch.rand(data_dim))
+        self.w = nn.Parameter(torch.rand(data_dim))
+        self.b = nn.Parameter(torch.rand(1))
+        self.h = nn.Tanh()
+        self.h_prime = lambda z: (1 - self.h(z) ** 2)
 
+    def constrained_u(self):
+        """
+        Constrain the parameters u to ensure invertibility
+        """
+        wu = torch.matmul(self.w.T, self.u)
+        m = lambda x: -1 + torch.log(1 + torch.exp(x))
+        return self.u + (m(wu) - wu) * (self.w / (torch.norm(self.w) ** 2 + 1e-15))
+
+    def forward(self, z):
+        u = self.constrained_u()
+        self.w = self.w
+        self.b = self.b
+        hidden_units = torch.matmul(self.w.T, z.T) + self.b
+        y = z + u.unsqueeze(0) * self.h(hidden_units).unsqueeze(-1)
+        psi = self.h_prime(hidden_units).unsqueeze(0) * self.w.unsqueeze(-1)
+        log_det = torch.log((1 + torch.matmul(u.T, psi)).abs() + 1e-15)
+        return y, log_det
+
+
+class PlanarFlowTransform(nn.Module):
+    def __init__(self, data_dim, num_flows):
+        super(PlanarFlowTransform, self).__init__()
+        self.planar_flows = nn.ModuleList(
+            [PlanarFlow(data_dim) for _ in range(num_flows)]
+        )
+
+    def forward(self, x):
+        y = x
+        log_det_J = 0
+
+        for flow in self.planar_flows:
+            y, log_det_J_flow = flow(y)
+            log_det_J += log_det_J_flow
+
+        return y, log_det_J
+
+    def inverse(self, y):
+        raise NotImplementedError
+
+    def log_abs_det_jacobian(self, x, y):
+        _, log_det_J = self.forward(x)
+        return log_det_J
+
+
+class FlowActor(nn.Module):
     def __init__(
         self,
         state_dim: int,
         action_dim: int,
         hidden_dims: str,
+        num_flows: int,
     ):
-        """
-        Parameters:
-        -----------
-            state_dim: int
-                Size of input state
-            action_dim: int
-                Size of output action
-            hidden_dims: int
-                String representing layer widths
-
-        """
-        super(Actor, self).__init__()
+        super(FlowActor, self).__init__()
 
         self.action_dim = action_dim
+        hidden_layers = format_widths(hidden_dims)
 
-        self.hidden_layers = format_widths(hidden_dims)
-
-        self.layers = make_fc_network(
-            self.hidden_layers, state_dim, action_dim)
-        
-
+        self.layers = make_fc_network(hidden_layers, state_dim, action_dim * 2)
 
         self.output_activation = nn.Tanh()
 
-    def forward(self, state: torch.Tensor) -> torch.Tensor:
-        """ Forward propagation of the actor.
-        Outputs an un-noisy un-normalized action
-        """
-        p = self.layers(state)
-        p = self.output_activation(p)
-
-        return p
-
-
-class MaxEntropyActor(Actor):
-    """ Actor module that takes in a state and outputs an action.
-    Its policy is the neural network layers
-    """
-
-    def __init__(
-        self,
-        state_dim: int,
-        action_dim: int,
-        hidden_dims: str,
-    ):
-        """
-        Parameters:
-        -----------
-            state_dim: int
-                Size of input state
-            action_dim: int
-                Size of output action
-            hidden_dims: int
-                String representing layer widths
-
-        """
-        super(MaxEntropyActor, self).__init__(
-            state_dim, action_dim, hidden_dims)
-
-        self.action_dim = action_dim
-
-        self.hidden_layers = format_widths(hidden_dims)
-
-        self.layers = make_fc_network(
-            self.hidden_layers, state_dim, action_dim * 2)
-
-        self.output_activation = nn.Tanh()
+        self.flow_transform = PlanarFlowTransform(action_dim, num_flows)
 
     def forward(
         self,
         state: torch.Tensor,
         stochastic: bool,
     ) -> torch.Tensor:
-        """ Forward propagation of the actor.
-        Outputs an un-noisy un-normalized action
-        """
-
         p = self.layers(state)
         mu = p[:, :self.action_dim]
         log_std = p[:, self.action_dim:]
 
         log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
         std = torch.exp(log_std)
-
+        det_L = log_std.prod(dim=-1)
         pi_distribution = Normal(mu, std)
-
         if stochastic:
             pi_action = pi_distribution.rsample()
         else:
             pi_action = mu
 
-        # Trick from Spinning Up's implementation:
-        # Compute logprob from Gaussian, and then apply correction for Tanh
-        # squashing. NOTE: The correction formula is a little bit magic. To
-        # get an understanding of where it comes from, check out the
-        # original SAC paper (arXiv 1801.01290) and look in appendix C.
-        # This is a more numerically-stable equivalent to Eq 21.
-        logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1)
-        logp_pi -= (2*(np.log(2) - pi_action -
-                       F.softplus(-2*pi_action))).sum(axis=1)
+        # Apply normalizing flow
+        z, log_det_J = self.flow_transform(pi_action)
 
-        pi_action = self.output_activation(pi_action)
+        pi_action, tan_J = self.tanh_layer(z)
+        log_det_J += tan_J
+        log_det_J += det_L
+        return pi_action, log_det_J
 
-        return pi_action, logp_pi
+    def tanh_layer(self, z):
+        pi_action = self.output_activation(z)
+        log_det_J = (1 - ((pi_action) ** 2)).sum(dim=-1)
 
-
-class Critic(nn.Module):
-    """ Critic module that takes in a pair of state-action and outputs its
-    q-value according to the network's q function.
-    """
-
-    def __init__(
-        self,
-        state_dim: int,
-        action_dim: int,
-        hidden_dims: str,
-    ):
-        """
-        Parameters:
-        -----------
-            state_dim: int
-                Size of input state
-            action_dim: int
-                Size of output action
-            hidden_dims: int
-                String representing layer widths
-
-        """
-        super(Critic, self).__init__()
-
-        self.hidden_layers = format_widths(hidden_dims)
-
-        self.q1 = make_fc_network(
-            self.hidden_layers, state_dim + action_dim, 1)
-
-    def forward(self, state, action) -> torch.Tensor:
-        """ Forward propagation of the actor.
-        Outputs a q estimate from both critics
-        """
-        q1_input = torch.cat([state, action], -1)
-
-        q1 = self.q1(q1_input).squeeze(-1)
-
-        return q1
+        return pi_action, log_det_J
 
 
-class DoubleCritic(Critic):
-    """ Critic module that takes in a pair of state-action and outputs its
-5   q-value according to the network's q function. TD3 uses two critics
-    and takes the lowest value of the two during backprop.
-    """
-
-    def __init__(
-        self,
-        state_dim: int,
-        action_dim: int,
-        hidden_dims: str,
-    ):
-        """
-        Parameters:
-        -----------
-            state_dim: int
-                Size of input state
-            action_dim: int
-                Size of output action
-            hidden_dims: int
-                String representing layer widths
-
-        """
-        super(DoubleCritic, self).__init__(
-            state_dim, action_dim, hidden_dims)
-
-        self.hidden_layers = format_widths(hidden_dims)
-
-        self.q1 = make_fc_network(
-            self.hidden_layers, state_dim + action_dim, 1)
-        self.q2 = make_fc_network(
-            self.hidden_layers, state_dim + action_dim, 1)
-
-    def forward(self, state, action) -> torch.Tensor:
-        """ Forward propagation of the actor.
-        Outputs a q estimate from both critics
-        """
-        q1_input = torch.cat([state, action], -1)
-        q2_input = torch.cat([state, action], -1)
-
-        q1 = self.q1(q1_input).squeeze(-1)
-        q2 = self.q2(q2_input).squeeze(-1)
-
-        return q1, q2
-
-    def Q1(self, state, action) -> torch.Tensor:
-        """ Forward propagation of the actor.
-        Outputs a q estimate from first critic
-        """
-        q1_input = torch.cat([state, action], -1)
-
-        q1 = self.q1(q1_input).squeeze(-1)
-
-        return q1
-
-
-class ActorCritic(object):
+class NFActorCritic(object):
     """ Module that handles the actor and the critic
     """
 
@@ -236,6 +129,7 @@ class ActorCritic(object):
         state_dim: int,
         action_dim: int,
         hidden_dims: str,
+        num_flows: int,
         device: torch.device,
     ):
         """
@@ -250,8 +144,8 @@ class ActorCritic(object):
 
         """
         self.device = device
-        self.actor = Actor(
-            state_dim, action_dim, hidden_dims,
+        self.actor = FlowActor(
+            state_dim, action_dim, hidden_dims, num_flows,
         ).to(device)
 
         self.critic = Critic(
@@ -357,7 +251,7 @@ class ActorCritic(object):
         self.critic.train()
 
 
-class TD3ActorCritic(ActorCritic):
+class NFSACActorCritic(NFActorCritic):
     """ Module that handles the actor and the critic
     """
 
@@ -366,38 +260,7 @@ class TD3ActorCritic(ActorCritic):
         state_dim: int,
         action_dim: int,
         hidden_dims: str,
-        device: torch.device,
-    ):
-        """
-        Parameters:
-        -----------
-            state_dim: int
-                Size of input state
-            action_dim: int
-                Size of output action
-            hidden_dims: int
-                String representing layer widths
-
-        """
-        self.device = device
-        self.actor = Actor(
-            state_dim, action_dim, hidden_dims,
-        ).to(device)
-
-        self.critic = DoubleCritic(
-            state_dim, action_dim, hidden_dims,
-        ).to(device)
-
-
-class SACActorCritic(ActorCritic):
-    """ Module that handles the actor and the critic
-    """
-
-    def __init__(
-        self,
-        state_dim: int,
-        action_dim: int,
-        hidden_dims: str,
+        num_flows: int,
         device: torch.device,
     ):
         """
@@ -413,8 +276,8 @@ class SACActorCritic(ActorCritic):
 
         """
         self.device = device
-        self.actor = MaxEntropyActor(
-            state_dim, action_dim, hidden_dims,
+        self.actor = FlowActor(
+            state_dim, action_dim, hidden_dims, num_flows,
         ).to(device)
 
         self.critic = DoubleCritic(
