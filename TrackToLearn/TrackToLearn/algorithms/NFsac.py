@@ -2,27 +2,22 @@ import copy
 import numpy as np
 import torch
 
-import torch.nn.functional as F
-
 from typing import Tuple
 
-from TrackToLearn.algorithms.sac import SAC
+from TrackToLearn.algorithms.ddpg import DDPG
 from TrackToLearn.algorithms.shared.NFoffpolicy import NFSACActorCritic as SACActorCritic
 from TrackToLearn.algorithms.shared.replay import OffPolicyReplayBuffer
 
 
-LOG_STD_MAX = 2
-LOG_STD_MIN = -20
-
-
-class NFSACAuto(SAC):
+class NFSAC(DDPG):
     """
     The sample-gathering and training algorithm.
     Based on
 
-        Haarnoja, T., Zhou, A., Hartikainen, K., Tucker, G., Ha, S., Tan, J., ...
-        & Levine, S. (2018). Soft actor-critic algorithms and applications.
-        arXiv preprint arXiv:1812.05905.
+        Haarnoja, T., Zhou, A., Abbeel, P., & Levine, S. (2018, July). Soft
+        actor-critic: Off-policy maximum entropy deep reinforcement learning with
+        a stochastic actor. In International conference on machine learning
+        (pp. 1861-1870). PMLR.
 
     Implementation is based on Spinning Up's and rlkit
 
@@ -38,8 +33,8 @@ class NFSACAuto(SAC):
         self,
         input_size: int,
         action_size: int,
-        hidden_dims: int,
-        num_flows: int = 32,
+        hidden_dims: str,
+        num_flows: int = 4,
         lr: float = 3e-4,
         gamma: float = 0.99,
         alpha: float = 0.2,
@@ -47,7 +42,7 @@ class NFSACAuto(SAC):
         rng: np.random.RandomState = None,
         device: torch.device = "cuda:0",
     ):
-        """8
+        """
         Parameters
         ----------
         input_size: int
@@ -61,8 +56,7 @@ class NFSACAuto(SAC):
         gamma: float
             Gamma parameter future reward discounting
         alpha: float
-            Initial value of parameter for entropy bonus.
-            Will get optimized.
+            Parameter for entropy bonus
         n_actors: int
             Batch size for replay buffer sampling
         rng: np.random.RandomState
@@ -78,24 +72,16 @@ class NFSACAuto(SAC):
         self.action_size = action_size
         self.lr = lr
         self.gamma = gamma
+        self.num_flows = num_flows
         self.device = device
         self.n_actors = n_actors
-        self.num_flows = num_flows,
+
         self.rng = rng
 
         # Initialize main policy
         self.policy = SACActorCritic(
             input_size, action_size, hidden_dims, num_flows, device,
         )
-
-        # Auto-temperature adjustment
-        starting_temperature = np.log(alpha)  # Found empirically
-        self.target_entropy = -np.prod(action_size).item()
-        self.log_alpha = torch.full(
-            (1,), starting_temperature, requires_grad=True, device=device)
-
-        self.alpha_optimizer = torch.optim.Adam(
-          [self.log_alpha], lr=lr)
 
         # Initialize target policy to provide baseline
         self.target = copy.deepcopy(self.policy)
@@ -126,6 +112,18 @@ class NFSACAuto(SAC):
 
         self.rng = rng
 
+    def sample_action(
+        self,
+        state: torch.Tensor
+    ) -> np.ndarray:
+        """ Sample an action according to the algorithm.
+        """
+
+        # Select action according to policy + noise for exploration
+        action = self.policy.select_action(state, stochastic=True)
+
+        return action
+
     def update(
         self,
         replay_buffer: OffPolicyReplayBuffer,
@@ -133,9 +131,9 @@ class NFSACAuto(SAC):
     ) -> Tuple[float, float]:
         """
 
-        SAC Auto improves upon SAC by learning the entropy coefficient
-        instead of making it a hyperparameter.
-
+        SAC improves upon DDPG by:
+            - Introducing entropy into the objective
+            - Using Double Q-Learning to fight overestimation
 
         Parameters
         ----------
@@ -158,16 +156,14 @@ class NFSACAuto(SAC):
             replay_buffer.sample(batch_size)
 
         pi, logp_pi = self.policy.act(state)
-        alpha_loss = -(self.log_alpha * (
-            logp_pi + self.target_entropy).detach()).mean()
-        
-        alpha = self.log_alpha.exp()
+        alpha = self.alpha
 
         q1, q2 = self.policy.critic(state, pi)
         q_pi = torch.min(q1, q2)
 
         # Entropy-regularized policy loss
         actor_loss = (alpha * logp_pi - q_pi).mean()
+
         with torch.no_grad():
             # Target actions come from *current* policy
             next_action, logp_next_action = self.policy.act(next_state)
@@ -185,27 +181,19 @@ class NFSACAuto(SAC):
             state, action)
 
         # MSE loss against Bellman backup
-        loss_q1 = F.mse_loss(current_Q1, backup.detach()).mean()
-        loss_q2 = F.mse_loss(current_Q2, backup.detach()).mean()
-
+        loss_q1 = ((current_Q1 - backup)**2).mean()
+        loss_q2 = ((current_Q2 - backup)**2).mean()
         critic_loss = loss_q1 + loss_q2
 
         losses = {
             'actor_loss': actor_loss.item(),
             'critic_loss': critic_loss.item(),
-            'alpha_loss': alpha_loss.item(),
             'loss_q1': loss_q1.item(),
             'loss_q2': loss_q2.item(),
-            'a': alpha.item(),
             'Q1': current_Q1.mean().item(),
             'Q2': current_Q2.mean().item(),
             'backup': backup.mean().item(),
         }
-
-        # Optimize the temperature
-        self.alpha_optimizer.zero_grad()
-        alpha_loss.backward()
-        self.alpha_optimizer.step()
 
         # Optimize the actor
         self.actor_optimizer.zero_grad()

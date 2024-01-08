@@ -1,10 +1,10 @@
 #$ -l tmem=40G
 #$ -l h_vmem=40G
-#$ -l h_rt=10:00:00
+#$ -l h_rt=75:00:00
 
 #$ -S /bin/bash
 #$ -j y
-#$ -N prob_nf
+#$ -N nf_auto_g75_80_ml200
 #$ -wd /cluster/project2/CU-MONDAI/Alec_Tract/TrackToLearn
 
 #$ -l gpu=true
@@ -39,7 +39,7 @@ validation_dataset_file=$WORK_DATASET_FOLDER/datasets/${VALIDATION_SUBJECT_ID}/$
 reference_file=$WORK_DATASET_FOLDER/datasets/${VALIDATION_SUBJECT_ID}/masks/${VALIDATION_SUBJECT_ID}_wm.nii.gz
 
 # RL params
-max_ep=1000 # Chosen empirically
+max_ep=1500 # Chosen empirically
 log_interval=50 # Log at n episodes
 lr=0.00005 # Learning rate
 gamma=0.75 # Gamma for reward discounting
@@ -49,15 +49,15 @@ prob=0.1 # Noise to add to make a prob output. 0 for deterministic
 max_length=200
 
 # Env parameters
-npv=100 # Seed per voxel
+npv=80 # Seed per voxel
 theta=30 # Maximum angle for streamline curvature
 step_size=0.75
 
-EXPERIMENT=prob_nf
+EXPERIMENT=nf_auto_g75_80_ml1000
 
 ID=$(date +"%F-%H_%M_%S")
 
-seeds=(1111)
+seeds=(1111 2222 3333 4444 5555)
 
 for rng_seed in "${seeds[@]}"
 do

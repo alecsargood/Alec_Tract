@@ -8,11 +8,12 @@ from torch import nn
 from torch.distributions.normal import Normal
 
 from TrackToLearn.algorithms.shared.utils import (
-    format_widths, make_fc_network)
+    format_widths, make_fc_network, gaussian_log_pdf)
 from TrackToLearn.algorithms.shared.offpolicy import Critic, DoubleCritic
 
 LOG_STD_MAX = 2
 LOG_STD_MIN = -20
+
 
 class PlanarFlow(nn.Module):
     def __init__(self, data_dim):
@@ -39,7 +40,7 @@ class PlanarFlow(nn.Module):
         hidden_units = torch.matmul(self.w.T, z.T) + self.b
         y = z + u.unsqueeze(0) * self.h(hidden_units).unsqueeze(-1)
         psi = self.h_prime(hidden_units).unsqueeze(0) * self.w.unsqueeze(-1)
-        log_det = torch.log((1 + torch.matmul(u.T, psi)).abs() + 1e-15)
+        log_det = (torch.log((1 + torch.matmul(u.T, psi)).abs() + 1e-15))
         return y, log_det
 
 
@@ -74,7 +75,7 @@ class FlowActor(nn.Module):
         state_dim: int,
         action_dim: int,
         hidden_dims: str,
-        num_flows: int,
+        num_flows: int = 32,
     ):
         super(FlowActor, self).__init__()
 
@@ -93,31 +94,36 @@ class FlowActor(nn.Module):
         stochastic: bool,
     ) -> torch.Tensor:
         p = self.layers(state)
-        mu = p[:, :self.action_dim]
-        log_std = p[:, self.action_dim:]
-
+        mu = p[:, : self.action_dim]
+        log_std = p[:, self.action_dim :]
         log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
         std = torch.exp(log_std)
-        det_L = log_std.prod(dim=-1)
+
+        #log_det_L = log_std.sum(axis=-1)
+
         pi_distribution = Normal(mu, std)
         if stochastic:
             pi_action = pi_distribution.rsample()
         else:
             pi_action = mu
-
+        logp_z = pi_distribution.log_prob(pi_action).sum(axis=-1)
         # Apply normalizing flow
         z, log_det_J = self.flow_transform(pi_action)
+        # Subtract off tanh layer det
+        logp_z -= (2*(np.log(2) - z -
+                       F.softplus(-2*z))).sum(axis=1)
+        # Apply tanh layer for final output
+        pi_action, _ = self.tanh_layer(z)
 
-        pi_action, tan_J = self.tanh_layer(z)
-        log_det_J += tan_J
-        log_det_J += det_L
-        return pi_action, log_det_J
+        logp_pi = logp_z  - log_det_J
+
+        return pi_action, logp_pi
 
     def tanh_layer(self, z):
-        pi_action = self.output_activation(z)
-        log_det_J = (1 - ((pi_action) ** 2)).sum(dim=-1)
+        z = self.output_activation(z)
+        log_det_tan = (torch.log(1 - (z ** 2))).sum(axis=-1)
 
-        return pi_action, log_det_J
+        return z, log_det_tan
 
 
 class NFActorCritic(object):

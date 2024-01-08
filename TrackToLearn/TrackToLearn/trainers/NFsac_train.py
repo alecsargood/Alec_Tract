@@ -7,7 +7,7 @@ import torch
 from argparse import RawTextHelpFormatter
 from comet_ml import Experiment as CometExperiment
 
-from TrackToLearn.algorithms.NFsac_auto import NFSACAuto
+from TrackToLearn.algorithms.NFsac import NFSAC
 from TrackToLearn.experiment.experiment import (
     add_data_args,
     add_environment_args,
@@ -22,14 +22,14 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 assert torch.cuda.is_available()
 
 
-class NFSACAutoTrackToLearnTraining(TrackToLearnTraining):
+class NFSACTrackToLearnTraining(TrackToLearnTraining):
     """
     Main RL tracking experiment
     """
 
     def __init__(
         self,
-        nfsac_auto_train_dto: dict,
+        nfsac_train_dto: dict,
         comet_experiment: CometExperiment,
     ):
         """
@@ -42,13 +42,13 @@ class NFSACAutoTrackToLearnTraining(TrackToLearnTraining):
         """
 
         super().__init__(
-            nfsac_auto_train_dto,
+            nfsac_train_dto,
             comet_experiment,
         )
 
         # SACAuto-specific parameters
-        self.alpha = nfsac_auto_train_dto['alpha']
-        self.num_flows = nfsac_auto_train_dto['num_flows']
+        self.alpha = nfsac_train_dto['alpha']
+        self.num_flows = nfsac_train_dto['num_flows']
 
     def save_hyperparameters(self):
         """ Add SACAuto-specific hyperparameters to self.hyperparameters
@@ -56,13 +56,13 @@ class NFSACAutoTrackToLearnTraining(TrackToLearnTraining):
         """
 
         self.hyperparameters.update(
-            {'algorithm': 'NFSACAuto',
+            {'algorithm': 'NFSAC',
              'alpha': self.alpha,
              'num_flows': self.num_flows})
         super().save_hyperparameters()
 
     def get_alg(self, max_nb_steps: int):
-        alg = NFSACAuto(
+        alg = NFSAC(
             self.input_size,
             self.action_size,
             self.hidden_dims,
@@ -76,10 +76,10 @@ class NFSACAutoTrackToLearnTraining(TrackToLearnTraining):
         return alg
 
 
-def add_nfsac_auto_args(parser):
+def add_nfsac_args(parser):
     parser.add_argument('--alpha', default=0.2, type=float,
                         help='Temperature parameter')
-    parser.add_argument('--num_flows', default=32, type=int,
+    parser.add_argument('--num_flows', default=4, type=int,
                         help='Number of Flows')
 
 
@@ -97,7 +97,7 @@ def parse_args():
     add_rl_args(parser)
     add_tracking_args(parser)
 
-    add_nfsac_auto_args(parser)
+    add_nfsac_args(parser)
 
     arguments = parser.parse_args()
     return arguments
@@ -115,12 +115,12 @@ def main():
                                  auto_metric_logging=False,
                                  disabled=not args.use_comet)
 
-    nfsac_auto_experiment = NFSACAutoTrackToLearnTraining(
+    nfsac_experiment = NFSACTrackToLearnTraining(
         # Dataset params
         vars(args),
         experiment
     )
-    nfsac_auto_experiment.run()
+    nfsac_experiment.run()
 
 
 if __name__ == '__main__':
