@@ -100,6 +100,8 @@ class TrackToLearnTraining(TrackToLearnExperiment):
         if not os.path.exists(directory):
             os.makedirs(directory)
 
+        _, env = self.get_envs()
+        
         self.hyperparameters = {
             # RL parameters
             'id': self.id,

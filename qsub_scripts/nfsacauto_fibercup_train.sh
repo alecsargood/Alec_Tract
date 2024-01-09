@@ -4,7 +4,7 @@
 
 #$ -S /bin/bash
 #$ -j y
-#$ -N nf_auto_g75_80_ml200
+#$ -N nf_auto_4layer_2
 #$ -wd /cluster/project2/CU-MONDAI/Alec_Tract/TrackToLearn
 
 #$ -l gpu=true
@@ -49,19 +49,20 @@ prob=0.1 # Noise to add to make a prob output. 0 for deterministic
 max_length=200
 
 # Env parameters
-npv=80 # Seed per voxel
+npv=100 # Seed per voxel
 theta=30 # Maximum angle for streamline curvature
 step_size=0.75
-
-EXPERIMENT=nf_auto_g75_80_ml1000
+num_flows=4
+EXPERIMENT=nf_auto_4layer_2
 
 ID=$(date +"%F-%H_%M_%S")
 
-seeds=(1111 2222 3333 4444 5555)
-
+seeds=(2222 2222 2222 2222 2222)
+counter=1
 for rng_seed in "${seeds[@]}"
 do
-  DEST_FOLDER="$WORK_EXPERIMENTS_FOLDER"/"$EXPERIMENT"/"$ID"/"$rng_seed"
+  counter=$((counter+1))
+  DEST_FOLDER="$WORK_EXPERIMENTS_FOLDER"/"$EXPERIMENT"/"$ID"/"$rng_seed"/"$counter"
 
   python TrackToLearn/trainers/NFsac_auto_train.py \
     $DEST_FOLDER \
@@ -82,6 +83,7 @@ do
     --theta=${theta} \
     --max_length=${max_length} \
     --step_size=${step_size} \
+    --num_flows=${num_flows} \
     --interface_seeding \
     --use_comet \
     --use_gpu \

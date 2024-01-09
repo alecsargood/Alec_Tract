@@ -9,6 +9,7 @@ from torch.distributions.normal import Normal
 
 from TrackToLearn.algorithms.shared.utils import (
     format_widths, make_fc_network)
+import random
 
 LOG_STD_MAX = 2
 LOG_STD_MIN = -20
@@ -108,7 +109,6 @@ class MaxEntropyActor(Actor):
 
         log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
         std = torch.exp(log_std)
-
         pi_distribution = Normal(mu, std)
 
         if stochastic:

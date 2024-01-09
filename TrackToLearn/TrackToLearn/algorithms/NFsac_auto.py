@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from typing import Tuple
 
 from TrackToLearn.algorithms.sac import SAC
-from TrackToLearn.algorithms.shared.NFoffpolicy import NFSACActorCritic as SACActorCritic
+from TrackToLearn.algorithms.shared.NFoffpolicy import NFSACActorCritic
 from TrackToLearn.algorithms.shared.replay import OffPolicyReplayBuffer
 
 
@@ -39,7 +39,7 @@ class NFSACAuto(SAC):
         input_size: int,
         action_size: int,
         hidden_dims: int,
-        num_flows: int = 32,
+        num_flows: int = 4,
         lr: float = 3e-4,
         gamma: float = 0.99,
         alpha: float = 0.2,
@@ -84,7 +84,7 @@ class NFSACAuto(SAC):
         self.rng = rng
 
         # Initialize main policy
-        self.policy = SACActorCritic(
+        self.policy = NFSACActorCritic(
             input_size, action_size, hidden_dims, num_flows, device,
         )
 

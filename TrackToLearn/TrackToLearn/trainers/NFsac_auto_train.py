@@ -79,7 +79,7 @@ class NFSACAutoTrackToLearnTraining(TrackToLearnTraining):
 def add_nfsac_auto_args(parser):
     parser.add_argument('--alpha', default=0.2, type=float,
                         help='Temperature parameter')
-    parser.add_argument('--num_flows', default=32, type=int,
+    parser.add_argument('--num_flows', default=4, type=int,
                         help='Number of Flows')
 
 

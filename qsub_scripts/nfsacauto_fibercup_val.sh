@@ -21,12 +21,12 @@ mkdir -p /scratch0/asargood/$JOB_ID
 
 base_dir=/cluster/project2/CU-MONDAI/Alec_Tract
 
-experiment=nf_auto_g75
+experiment=nf_auto_g65
 id=$(date +"%F-%H_%M_%S")0
 dataset=${base_dir}/datasets/fibercup_3mm/fibercup_3mm.hdf5
 subject_id=fibercup_3mm
 seed_mask=${base_dir}/datasets/fibercup_3mm/maps/interface.nii.gz
-policy=${base_dir}/experiments/${experiment}/2024-01-03-15_49_25/3333/model
+policy=${base_dir}/experiments/${experiment}/2024-01-08-08_22_30/1111/model
 hyperparams=${policy}/hyperparameters.json
 scoring_data=${base_dir}/datasets/fibercup_3mm/scoring_data
 
