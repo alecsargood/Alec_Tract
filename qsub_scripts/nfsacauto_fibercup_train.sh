@@ -4,7 +4,7 @@
 
 #$ -S /bin/bash
 #$ -j y
-#$ -N nf_auto_4layer_2
+#$ -N nf_auto_2layer_1
 #$ -wd /cluster/project2/CU-MONDAI/Alec_Tract/TrackToLearn
 
 #$ -l gpu=true
@@ -52,12 +52,12 @@ max_length=200
 npv=100 # Seed per voxel
 theta=30 # Maximum angle for streamline curvature
 step_size=0.75
-num_flows=4
-EXPERIMENT=nf_auto_4layer_2
+num_flows=2
+EXPERIMENT=nf_auto_2layer_1
 
 ID=$(date +"%F-%H_%M_%S")
 
-seeds=(2222 2222 2222 2222 2222)
+seeds=(1111 1111 1111 1111 1111)
 counter=1
 for rng_seed in "${seeds[@]}"
 do

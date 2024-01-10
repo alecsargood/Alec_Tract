@@ -75,7 +75,7 @@ class FlowActor(nn.Module):
         state_dim: int,
         action_dim: int,
         hidden_dims: str,
-        num_flows: int = 4,
+        num_flows: int,
     ):
         super(FlowActor, self).__init__()
 
