@@ -4,7 +4,7 @@
 
 #$ -S /bin/bash
 #$ -j y
-#$ -N test_8
+#$ -N nf_2layer_65
 #$ -wd /cluster/project2/CU-MONDAI/Alec_Tract/TrackToLearn
 
 #$ -l gpu=true
@@ -39,10 +39,10 @@ validation_dataset_file=$WORK_DATASET_FOLDER/datasets/${VALIDATION_SUBJECT_ID}/$
 reference_file=$WORK_DATASET_FOLDER/datasets/${VALIDATION_SUBJECT_ID}/masks/${VALIDATION_SUBJECT_ID}_wm.nii.gz
 
 # RL params
-max_ep=100 # Chosen empirically
+max_ep=1500 # Chosen empirically
 log_interval=50 # Log at n episodes
 lr=0.00005 # Learning rate
-gamma=0.75 # Gamma for reward discounting
+gamma=0.65 # Gamma for reward discounting
 
 # Model params
 prob=0.1 # Noise to add to make a prob output. 0 for deterministic
@@ -52,16 +52,16 @@ max_length=200
 npv=100 # Seed per voxel
 theta=30 # Maximum angle for streamline curvature
 step_size=0.75
-num_flows=8
-EXPERIMENT=test_8
+num_flows=2
+EXPERIMENT=nf_2layer_65
 ID=$(date +"%F-%H_%M_%S")
 
-seeds=(1111 1111 1111)
-counter=0
+seeds=(1111 2222 3333)
+
 for rng_seed in "${seeds[@]}"
 do
-  counter=$((counter+1))
-  DEST_FOLDER="$WORK_EXPERIMENTS_FOLDER"/"$EXPERIMENT"/"$ID"/"$rng_seed"/"$counter"
+
+  DEST_FOLDER="$WORK_EXPERIMENTS_FOLDER"/"$EXPERIMENT"/"$ID"/"$rng_seed"
 
   python TrackToLearn/trainers/NFsac_auto_train.py \
     $DEST_FOLDER \

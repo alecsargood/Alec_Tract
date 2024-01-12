@@ -4,7 +4,7 @@
 
 #$ -S /bin/bash
 #$ -j y
-#$ -N layer1
+#$ -N test_8_val3
 #$ -wd /cluster/project2/CU-MONDAI/Alec_Tract/TrackToLearn
 
 #$ -l gpu=true
@@ -21,12 +21,12 @@ mkdir -p /scratch0/asargood/$JOB_ID
 
 base_dir=/cluster/project2/CU-MONDAI/Alec_Tract
 
-experiment=nf_auto_4layer_1
+experiment=test_8
 id=$(date +"%F-%H_%M_%S")0
 dataset=${base_dir}/datasets/fibercup_3mm/fibercup_3mm.hdf5
 subject_id=fibercup_3mm
 seed_mask=${base_dir}/datasets/fibercup_3mm/maps/interface.nii.gz
-policy=${base_dir}/experiments/${experiment}/sim2/2/model
+policy=${base_dir}/experiments/${experiment}/2024-01-12-10_00_18/3/model
 hyperparams=${policy}/hyperparameters.json
 scoring_data=${base_dir}/datasets/fibercup_3mm/scoring_data
 

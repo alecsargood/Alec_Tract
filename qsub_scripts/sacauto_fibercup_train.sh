@@ -4,7 +4,7 @@
 
 #$ -S /bin/bash
 #$ -j y
-#$ -N sacauto_bench_1
+#$ -N sacauto_bench
 #$ -wd /cluster/project2/CU-MONDAI/Alec_Tract/TrackToLearn
 
 #$ -l gpu=true
@@ -53,17 +53,15 @@ npv=100 # Seed per voxel
 theta=30 # Maximum angle for streamline curvature
 step_size=0.75
 
-EXPERIMENT=sacauto_bench_1
+EXPERIMENT=sacauto_bench
 
 ID=$(date +"%F-%H_%M_%S")
 
-seeds=(1111 1111)
-
-counter=1
+seeds=(1111 2222 3333)
 for rng_seed in "${seeds[@]}"
 do
-  counter=$((counter+1))
-  DEST_FOLDER="$WORK_EXPERIMENTS_FOLDER"/"$EXPERIMENT"/"$ID"/"$rng_seed"/"$counter"
+
+  DEST_FOLDER="$WORK_EXPERIMENTS_FOLDER"/"$EXPERIMENT"/"$ID"/"$rng_seed"
 
   python TrackToLearn/trainers/sac_auto_train.py \
     $DEST_FOLDER \
