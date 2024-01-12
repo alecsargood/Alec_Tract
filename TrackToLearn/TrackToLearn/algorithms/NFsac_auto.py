@@ -39,7 +39,7 @@ class NFSACAuto(SAC):
         input_size: int,
         action_size: int,
         hidden_dims: int,
-        num_flows: int = 4,
+        num_flows: int,
         lr: float = 3e-4,
         gamma: float = 0.99,
         alpha: float = 0.2,

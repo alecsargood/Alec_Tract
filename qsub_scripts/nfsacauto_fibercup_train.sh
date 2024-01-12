@@ -4,7 +4,7 @@
 
 #$ -S /bin/bash
 #$ -j y
-#$ -N nf_auto_2layer_1
+#$ -N nf_auto_2layer_1_retry
 #$ -wd /cluster/project2/CU-MONDAI/Alec_Tract/TrackToLearn
 
 #$ -l gpu=true
@@ -53,7 +53,7 @@ npv=100 # Seed per voxel
 theta=30 # Maximum angle for streamline curvature
 step_size=0.75
 num_flows=2
-EXPERIMENT=nf_auto_2layer_1
+EXPERIMENT=nf_auto_2layer_1_retry
 
 ID=$(date +"%F-%H_%M_%S")
 
