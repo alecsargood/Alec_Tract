@@ -1,6 +1,8 @@
 import numpy as np
-
+import torch
+import math
 from torch import nn
+
 
 
 def add_item_to_means(means, dic):
@@ -42,3 +44,11 @@ def make_fc_network(
     # no activ. on last layer
     layers.extend([nn.Linear(widths[-1], output_size)])
     return nn.Sequential(*layers)
+
+def gaussian_log_pdf(mu, std, log_std, val, k):
+    pdf = (
+        (((val - mu) ** 2) / (std**2)).sum(dim=-1)
+        + 2 * log_std.sum(dim=-1)
+        + k * math.log(2 * math.pi)
+    )
+    return -pdf / 2

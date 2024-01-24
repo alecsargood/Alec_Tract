@@ -21,6 +21,7 @@ from TrackToLearn.algorithms.trpo import TRPO
 from TrackToLearn.algorithms.td3 import TD3
 from TrackToLearn.algorithms.sac import SAC
 from TrackToLearn.algorithms.sac_auto import SACAuto
+from TrackToLearn.algorithms.NFsac_auto import NFSACAuto
 from TrackToLearn.algorithms.vpg import VPG
 from TrackToLearn.datasets.utils import MRIDataVolume
 from TrackToLearn.experiment.experiment import (
@@ -93,6 +94,11 @@ class TrackToLearnValidation(TrackToLearnExperiment):
             self.asymmetric = hyperparams.get('asymmetric', False)
             self.no_retrack = hyperparams.get('no_retrack', False)
 
+        if self.algorithm=='NFSACAuto':
+            with open(valid_dto['hyperparameters'], 'r') as json_file:
+                hyperparams = json.load(json_file)
+                self.num_flows = hyperparams['num_flows']
+                
         self.comet_experiment = None
         self.remove_invalid_streamlines = valid_dto[
             'remove_invalid_streamlines']
@@ -209,18 +215,29 @@ class TrackToLearnValidation(TrackToLearnExperiment):
                 'DDPG': DDPG,
                 'TD3': TD3,
                 'SAC': SAC,
-                'SACAuto': SACAuto}
+                'SACAuto': SACAuto,
+                'NFSACAuto': NFSACAuto}
 
         rl_alg = algs[self.algorithm]
 
         # The RL training algorithm
-        alg = rl_alg(
+        if self.algorithm=='NFSACAuto':
+            alg = rl_alg(
             self.input_size,
             self.action_size,
             self.hidden_dims,
+            self.num_flows,
             n_actors=self.n_actor,
             rng=self.rng,
             device=self.device)
+        else:
+            alg = rl_alg(
+                self.input_size,
+                self.action_size,
+                self.hidden_dims,
+                n_actors=self.n_actor,
+                rng=self.rng,
+                device=self.device)
 
         # Load pretrained policies
         alg.policy.load(self.policy, 'last_model_state')

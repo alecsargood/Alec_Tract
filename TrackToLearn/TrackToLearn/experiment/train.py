@@ -100,6 +100,8 @@ class TrackToLearnTraining(TrackToLearnExperiment):
         if not os.path.exists(directory):
             os.makedirs(directory)
 
+        _, env = self.get_envs()
+        
         self.hyperparameters = {
             # RL parameters
             'id': self.id,
@@ -293,6 +295,7 @@ class TrackToLearnTraining(TrackToLearnExperiment):
         # Voxel size
         self.voxel_size = env.get_voxel_size()
 
+        
         max_traj_length = env.max_nb_steps
 
         # The RL training algorithm

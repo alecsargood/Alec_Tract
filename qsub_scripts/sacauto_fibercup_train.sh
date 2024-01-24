@@ -1,15 +1,15 @@
 #$ -l tmem=40G
 #$ -l h_vmem=40G
-#$ -l h_rt=10:00:00
+#$ -l h_rt=48:00:00
 
 #$ -S /bin/bash
 #$ -j y
-#$ -N fixed_det
+#$ -N benchmarks
 #$ -wd /cluster/project2/CU-MONDAI/Alec_Tract/TrackToLearn
 
 #$ -l gpu=true
 #$ -o /cluster/project2/CU-MONDAI/Alec_Tract/logs
-#$ -e /cluster/project2/CU-MONDAI/ellie_TTL/logs 
+#$ -e /cluster/project2/CU-MONDAI/Alec_Tract/logs 
 
 #$ -l tscratch=20G
 
@@ -39,27 +39,29 @@ validation_dataset_file=$WORK_DATASET_FOLDER/datasets/${VALIDATION_SUBJECT_ID}/$
 reference_file=$WORK_DATASET_FOLDER/datasets/${VALIDATION_SUBJECT_ID}/masks/${VALIDATION_SUBJECT_ID}_wm.nii.gz
 
 # RL params
-max_ep=3000 # Chosen empirically
+max_ep=1500 # Chosen empirically
 log_interval=50 # Log at n episodes
 lr=0.00005 # Learning rate
 gamma=0.75 # Gamma for reward discounting
 
 # Model params
-prob=0.0 # Noise to add to make a prob output. 0 for deterministic
+prob=0.1 # Noise to add to make a prob output. 0 for deterministic
+max_length=200
 
 # Env parameters
 npv=100 # Seed per voxel
 theta=30 # Maximum angle for streamline curvature
+step_size=0.75
 
-EXPERIMENT=SAC_Auto_FiberCupTrainExp2_fixed_stepsize_large
+EXPERIMENT=benchmarks
 
 ID=$(date +"%F-%H_%M_%S")
 
-seeds=(1111 2222)
-
+seeds=(1111 2222 3333 4444 5555 6666 7777 8888 9999)
 for rng_seed in "${seeds[@]}"
 do
-  DEST_FOLDER="$WORK_EXPERIMENTS_FOLDER"/"$EXPERIMENT"/"$ID"/"$rng_seed"
+
+  DEST_FOLDER="$WORK_EXPERIMENTS_FOLDER"/"$EXPERIMENT"/"$rng_seed"
 
   python TrackToLearn/trainers/sac_auto_train.py \
     $DEST_FOLDER \
@@ -78,8 +80,8 @@ do
     --rng_seed=${rng_seed} \
     --npv=${npv} \
     --theta=${theta} \
-    --max_length=1000 \
-    --step_size=2.84 \
+    --max_length=${max_length} \
+    --step_size=${step_size} \
     --interface_seeding \
     --use_comet \
     --use_gpu \

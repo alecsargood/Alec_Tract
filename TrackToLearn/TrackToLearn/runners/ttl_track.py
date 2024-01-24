@@ -25,6 +25,8 @@ from TrackToLearn.algorithms.trpo import TRPO
 from TrackToLearn.algorithms.td3 import TD3
 from TrackToLearn.algorithms.sac import SAC
 from TrackToLearn.algorithms.sac_auto import SACAuto
+from TrackToLearn.algorithms.NFsac_auto import NFSACAuto
+from TrackToLearn.algorithms.NFsac import NFSAC
 from TrackToLearn.algorithms.vpg import VPG
 from TrackToLearn.datasets.utils import MRIDataVolume
 from TrackToLearn.experiment.tracker import Tracker
@@ -168,7 +170,9 @@ class TrackToLearnTrack(TrackToLearnExperiment):
                 'DDPG': DDPG,
                 'TD3': TD3,
                 'SAC': SAC,
-                'SACAuto': SACAuto}
+                'SACAuto': SACAuto,
+                'NFSACAuto': NFSACAuto,
+                'NFSAC': NFSAC}
 
         rl_alg = algs[self.algorithm]
         print('Tracking with {} agent.'.format(self.algorithm))

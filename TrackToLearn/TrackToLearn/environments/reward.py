@@ -30,7 +30,6 @@ class Reward(object):
         theta: float = 60,
         min_nb_steps: float = 10,
         asymmetric: bool = False,
-        dynamic_stepsize: bool = False,
         alignment_weighting: float = 1.0,
         straightness_weighting: float = 0.0,
         length_weighting: float = 0.0,
@@ -83,7 +82,6 @@ class Reward(object):
         self.theta = theta
         self.min_nb_steps = min_nb_steps
         self.asymmetric = asymmetric
-        self.dynamic_stepsize = dynamic_stepsize
         self.alignment_weighting = alignment_weighting
         self.straightness_weighting = straightness_weighting
         self.length_weighting = length_weighting
@@ -128,7 +126,7 @@ class Reward(object):
         #         ROIs=ROIs,
         #         compute_ic_ib=False)
 
-    def __call__(self, streamlines, dones, magnitude=None):
+    def __call__(self, streamlines, dones):
         """
         Compute rewards for the last step of the streamlines
         Each reward component is weighted according to a
@@ -181,12 +179,7 @@ class Reward(object):
                 streamlines,
                 dones)
 
-        # do stepsize scaling if using dynamic stepsize
-        if self.dynamic_stepsize:
-            rewards = np.multiply(rewards, magnitude.flatten())
-        
-        return rewards 
-
+        return rewards
 
     def reward_target(
         self,
@@ -391,7 +384,7 @@ def reward_length(streamlines, max_length):
     return rewards
 
 
-def reward_alignment_with_peaks( 
+def reward_alignment_with_peaks(
     streamlines, peaks, asymmetric
 ):
     """ Reward streamlines according to the alignment to their corresponding
