@@ -1,10 +1,10 @@
 #$ -l tmem=40G
 #$ -l h_vmem=40G
-#$ -l h_rt=10:00:00
+#$ -l h_rt=48:00:00
 
 #$ -S /bin/bash
 #$ -j y
-#$ -N prob_nf
+#$ -N ismrm_seed9_bonus5
 #$ -wd /cluster/project2/CU-MONDAI/Alec_Tract/TrackToLearn
 
 #$ -l gpu=true
@@ -22,8 +22,8 @@ mkdir -p /scratch0/asargood/$JOB_ID
 DATASET_FOLDER=${TRACK_TO_LEARN_DATA}/
 WORK_DATASET_FOLDER=${LOCAL_TRACK_TO_LEARN_DATA}/
 
-VALIDATION_SUBJECT_ID=fibercup_3mm
-SUBJECT_ID=fibercup_3mm
+VALIDATION_SUBJECT_ID=ismrm2015
+SUBJECT_ID=ismrm2015
 EXPERIMENTS_FOLDER=${DATASET_FOLDER}/experiments
 WORK_EXPERIMENTS_FOLDER=${WORK_DATASET_FOLDER}/experiments
 SCORING_DATA=${DATASET_FOLDER}/datasets/${VALIDATION_SUBJECT_ID}/scoring_data
@@ -39,31 +39,34 @@ validation_dataset_file=$WORK_DATASET_FOLDER/datasets/${VALIDATION_SUBJECT_ID}/$
 reference_file=$WORK_DATASET_FOLDER/datasets/${VALIDATION_SUBJECT_ID}/masks/${VALIDATION_SUBJECT_ID}_wm.nii.gz
 
 # RL params
-max_ep=3000 # Chosen empirically
+max_ep=1500 # Chosen empirically
 log_interval=50 # Log at n episodes
 lr=0.00005 # Learning rate
 gamma=0.75 # Gamma for reward discounting
+alpha=0.2
 
 # Model params
 prob=0.1 # Noise to add to make a prob output. 0 for deterministic
-max_length=200
 
 # Env parameters
 npv=100 # Seed per voxel
 theta=30 # Maximum angle for streamline curvature
-step_size=0.75
 
-EXPERIMENT=prob_nf
+Num_Flows=(0 2 4 8 16 32)
+
+bonus=5
+EXPERIMENT=ismrm_seed9_bonus5
 
 ID=$(date +"%F-%H_%M_%S")
 
-seeds=(1111 2222)
+rng_seed=9999
 
-for rng_seed in "${seeds[@]}"
+for num_flows in "${Num_Flows[@]}"
 do
-  DEST_FOLDER="$WORK_EXPERIMENTS_FOLDER"/"$EXPERIMENT"/"$ID"/"$rng_seed"
 
-  python TrackToLearn/trainers/NFsac_train.py \
+  DEST_FOLDER="$WORK_EXPERIMENTS_FOLDER"/"ISMRM"/"$EXPERIMENT"/"$num_flows"
+
+  python TrackToLearn/trainers/NFsac_auto_train.py \
     $DEST_FOLDER \
     "$EXPERIMENT" \
     "$ID" \
@@ -77,20 +80,22 @@ do
     --log_interval=${log_interval} \
     --lr=${lr} \
     --gamma=${gamma} \
+    --alpha=${alpha} \
+    --num_flows=${num_flows} \
     --rng_seed=${rng_seed} \
     --npv=${npv} \
     --theta=${theta} \
-    --max_length=${max_length} \
-    --step_size=${step_size} \
+    --target_bonus_factor=${bonus} \
+    --max_length=200 \
     --interface_seeding \
     --use_comet \
     --use_gpu \
-    --run_tractometer 
+    --run_tractometer
 
   mkdir -p $EXPERIMENTS_FOLDER/"$EXPERIMENT"
+
   mkdir -p $EXPERIMENTS_FOLDER/"$EXPERIMENT"/"$ID"
   mkdir -p $EXPERIMENTS_FOLDER/"$EXPERIMENT"/"$ID"/
-
   cp -f -r $DEST_FOLDER "$EXPERIMENTS_FOLDER"/"$EXPERIMENT"/"$ID"/
 
 done

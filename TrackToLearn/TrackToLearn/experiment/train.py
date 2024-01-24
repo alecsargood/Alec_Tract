@@ -295,6 +295,7 @@ class TrackToLearnTraining(TrackToLearnExperiment):
         # Voxel size
         self.voxel_size = env.get_voxel_size()
 
+        
         max_traj_length = env.max_nb_steps
 
         # The RL training algorithm

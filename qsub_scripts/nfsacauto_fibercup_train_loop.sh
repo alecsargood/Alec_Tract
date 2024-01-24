@@ -1,10 +1,10 @@
 #$ -l tmem=40G
 #$ -l h_vmem=40G
-#$ -l h_rt=75:00:00
+#$ -l h_rt=48:00:00
 
 #$ -S /bin/bash
 #$ -j y
-#$ -N nf_2layer_65
+#$ -N nf_seed9_bonus0
 #$ -wd /cluster/project2/CU-MONDAI/Alec_Tract/TrackToLearn
 
 #$ -l gpu=true
@@ -42,26 +42,29 @@ reference_file=$WORK_DATASET_FOLDER/datasets/${VALIDATION_SUBJECT_ID}/masks/${VA
 max_ep=1500 # Chosen empirically
 log_interval=50 # Log at n episodes
 lr=0.00005 # Learning rate
-gamma=0.65 # Gamma for reward discounting
+gamma=0.75 # Gamma for reward discounting
+alpha=0.2
 
 # Model params
 prob=0.1 # Noise to add to make a prob output. 0 for deterministic
-max_length=200
 
 # Env parameters
 npv=100 # Seed per voxel
 theta=30 # Maximum angle for streamline curvature
-step_size=0.75
-num_flows=2
-EXPERIMENT=nf_2layer_65
+
+Num_Flows=(0 2 4 8 16 32)
+
+bonus=0
+EXPERIMENT=nf_seed9_bonus0
+
 ID=$(date +"%F-%H_%M_%S")
 
-seeds=(1111 2222 3333)
+rng_seed=9999
 
-for rng_seed in "${seeds[@]}"
+for num_flows in "${Num_Flows[@]}"
 do
 
-  DEST_FOLDER="$WORK_EXPERIMENTS_FOLDER"/"$EXPERIMENT"/"$ID"/"$rng_seed"
+  DEST_FOLDER="$WORK_EXPERIMENTS_FOLDER"/"Fibercup"/"$EXPERIMENT"/"$num_flows"
 
   python TrackToLearn/trainers/NFsac_auto_train.py \
     $DEST_FOLDER \
@@ -77,21 +80,22 @@ do
     --log_interval=${log_interval} \
     --lr=${lr} \
     --gamma=${gamma} \
+    --alpha=${alpha} \
+    --num_flows=${num_flows} \
     --rng_seed=${rng_seed} \
     --npv=${npv} \
     --theta=${theta} \
-    --max_length=${max_length} \
-    --step_size=${step_size} \
-    --num_flows=${num_flows} \
+    --target_bonus_factor=${bonus} \
+    --max_length=200 \
     --interface_seeding \
     --use_comet \
     --use_gpu \
-    --run_tractometer 
+    --run_tractometer
 
   mkdir -p $EXPERIMENTS_FOLDER/"$EXPERIMENT"
+
   mkdir -p $EXPERIMENTS_FOLDER/"$EXPERIMENT"/"$ID"
   mkdir -p $EXPERIMENTS_FOLDER/"$EXPERIMENT"/"$ID"/
-
   cp -f -r $DEST_FOLDER "$EXPERIMENTS_FOLDER"/"$EXPERIMENT"/"$ID"/
 
 done

@@ -4,7 +4,7 @@
 
 #$ -S /bin/bash
 #$ -j y
-#$ -N bench
+#$ -N ismrm_bench
 #$ -wd /cluster/project2/CU-MONDAI/Alec_Tract/TrackToLearn
 
 #$ -l gpu=true
@@ -21,17 +21,16 @@ mkdir -p /scratch0/asargood/$JOB_ID
 
 base_dir=/cluster/project2/CU-MONDAI/Alec_Tract
 
-experiment=benchmarks
-seed=1111
+experiment=ismrm_bench
 id=$(date +"%F-%H_%M_%S")0
-dataset=${base_dir}/datasets/fibercup_3mm/fibercup_3mm.hdf5
-subject_id=fibercup_3mm
-seed_mask=${base_dir}/datasets/fibercup_3mm/maps/interface.nii.gz
-policy=${base_dir}/experiments/${experiment}/${seed}/model
+dataset=${base_dir}/datasets/ismrm2015/ismrm2015.hdf5
+subject_id=ismrm2015
+seed_mask=${base_dir}/datasets/ismrm2015/maps/interface.nii.gz
+policy=${base_dir}/experiments/${experiment}/1111/model
 hyperparams=${policy}/hyperparameters.json
-scoring_data=${base_dir}/datasets/fibercup_3mm/scoring_data
+scoring_data=${base_dir}/datasets/ismrm2015/scoring_data
 
-path=${base_dir}/experiments/${experiment}/${seed}/validate
+path=${base_dir}/experiments/${experiment}/${id}/validate
 
 mkdir -p ${path}
 mkdir -p ${path}/tractometer
