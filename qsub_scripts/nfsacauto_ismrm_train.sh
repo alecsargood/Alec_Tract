@@ -52,7 +52,7 @@ prob=0.1 # Noise to add to make a prob output. 0 for deterministic
 npv=100 # Seed per voxel
 theta=30 # Maximum angle for streamline curvature
 
-Num_Flows=(0 2 4 8 16 32)
+Num_Flows=(2 4 8 16 32)
 
 bonus=5
 EXPERIMENT=ismrm_seed9_bonus5
@@ -64,7 +64,7 @@ rng_seed=9999
 for num_flows in "${Num_Flows[@]}"
 do
 
-  DEST_FOLDER="$WORK_EXPERIMENTS_FOLDER"/"ISMRM"/"$EXPERIMENT"/"$num_flows"
+  DEST_FOLDER="$WORK_EXPERIMENTS_FOLDER"/ISMRM/"$EXPERIMENT"/"$num_flows"
 
   python TrackToLearn/trainers/NFsac_auto_train.py \
     $DEST_FOLDER \
