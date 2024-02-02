@@ -4,7 +4,7 @@
 
 #$ -S /bin/bash
 #$ -j y
-#$ -N nf_seed4_bonus10_val
+#$ -N nf_seed7_val_32
 #$ -wd /cluster/project2/CU-MONDAI/Alec_Tract/TrackToLearn
 
 #$ -l gpu=true
@@ -20,21 +20,20 @@ source /share/apps/source_files/cuda/cuda-11.0.source
 mkdir -p /scratch0/asargood/$JOB_ID
 
 base_dir=/cluster/project2/CU-MONDAI/Alec_Tract
-id=$(date +"%F-%H_%M_%S")0
 dataset=${base_dir}/datasets/fibercup_3mm/fibercup_3mm.hdf5
 subject_id=fibercup_3mm
 seed_mask=${base_dir}/datasets/fibercup_3mm/maps/interface.nii.gz
-experiment=nf_seed4_bonus10
+experiment=nf_seed7_bonus5
 Num_Flows=(32)
 scoring_data=${base_dir}/datasets/fibercup_3mm/scoring_data
 
 for num_flows in "${Num_Flows[@]}"
 do
 
-    policy=${base_dir}/experiments/Fibercup/${experiment}/${num_flows}/model
+    policy=${base_dir}/experiments/Fibercup/Regular/${experiment}/${num_flows}/model
     hyperparams=${policy}/hyperparameters.json
 
-    path=${base_dir}/experiments/Fibercup/${experiment}/${num_flows}/validate
+    path=${base_dir}/experiments/Fibercup/Regular/${experiment}/${num_flows}/validate
 
     mkdir -p ${path}
     mkdir -p ${path}/tractometer

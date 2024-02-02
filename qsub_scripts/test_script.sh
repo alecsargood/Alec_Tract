@@ -1,10 +1,10 @@
 #$ -l tmem=40G
 #$ -l h_vmem=40G
-#$ -l h_rt=72:00:00
+#$ -l h_rt=48:00:00
 
 #$ -S /bin/bash
 #$ -j y
-#$ -N ismrm_train
+#$ -N test
 #$ -wd /cluster/project2/CU-MONDAI/Alec_Tract/TrackToLearn
 
 #$ -l gpu=true
@@ -22,8 +22,8 @@ mkdir -p /scratch0/asargood/$JOB_ID
 DATASET_FOLDER=${TRACK_TO_LEARN_DATA}/
 WORK_DATASET_FOLDER=${LOCAL_TRACK_TO_LEARN_DATA}/
 
-VALIDATION_SUBJECT_ID=ismrm2015
-SUBJECT_ID=ismrm2015
+VALIDATION_SUBJECT_ID=fibercup_3mm
+SUBJECT_ID=fibercup_3mm
 EXPERIMENTS_FOLDER=${DATASET_FOLDER}/experiments
 WORK_EXPERIMENTS_FOLDER=${WORK_DATASET_FOLDER}/experiments
 SCORING_DATA=${DATASET_FOLDER}/datasets/${VALIDATION_SUBJECT_ID}/scoring_data
@@ -39,8 +39,8 @@ validation_dataset_file=$WORK_DATASET_FOLDER/datasets/${VALIDATION_SUBJECT_ID}/$
 reference_file=$WORK_DATASET_FOLDER/datasets/${VALIDATION_SUBJECT_ID}/masks/${VALIDATION_SUBJECT_ID}_wm.nii.gz
 
 # RL params
-max_ep=1500 # Chosen empirically
-log_interval=50 # Log at n episodes
+max_ep=10 # Chosen empirically
+log_interval=1 # Log at n episodes
 lr=0.00005 # Learning rate
 gamma=0.75 # Gamma for reward discounting
 alpha=0.2
@@ -52,19 +52,19 @@ prob=0.1 # Noise to add to make a prob output. 0 for deterministic
 npv=100 # Seed per voxel
 theta=30 # Maximum angle for streamline curvature
 
-Num_Flows=(0 2 4 8 16 32)
+Num_Flows=(2)
 
-bonus=5
-EXPERIMENT=nf_seed9_bonus5
+bonus=0
+EXPERIMENT=test
 
 ID=$(date +"%F-%H_%M_%S")
 
-rng_seed=9999
+rng_seed=1111
 
 for num_flows in "${Num_Flows[@]}"
 do
 
-  DEST_FOLDER="$WORK_EXPERIMENTS_FOLDER"/ISMRM/"$EXPERIMENT"/"$num_flows"
+  DEST_FOLDER="$WORK_EXPERIMENTS_FOLDER"/"Fibercup"/"$EXPERIMENT"/"$num_flows"
 
   python TrackToLearn/trainers/NFsac_auto_train.py \
     $DEST_FOLDER \

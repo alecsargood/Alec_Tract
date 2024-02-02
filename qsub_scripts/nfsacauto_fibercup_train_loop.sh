@@ -4,7 +4,7 @@
 
 #$ -S /bin/bash
 #$ -j y
-#$ -N nf_seed9_bonus0
+#$ -N nf_seed7_bonus5
 #$ -wd /cluster/project2/CU-MONDAI/Alec_Tract/TrackToLearn
 
 #$ -l gpu=true
@@ -52,19 +52,19 @@ prob=0.1 # Noise to add to make a prob output. 0 for deterministic
 npv=100 # Seed per voxel
 theta=30 # Maximum angle for streamline curvature
 
-Num_Flows=(0 2 4 8 16 32)
+Num_Flows=(8 16 32)
 
-bonus=0
-EXPERIMENT=nf_seed9_bonus0
+bonus=5
+EXPERIMENT=nf_seed7_bonus5
 
 ID=$(date +"%F-%H_%M_%S")
 
-rng_seed=9999
+rng_seed=7777
 
 for num_flows in "${Num_Flows[@]}"
 do
 
-  DEST_FOLDER="$WORK_EXPERIMENTS_FOLDER"/"Fibercup"/"$EXPERIMENT"/"$num_flows"
+  DEST_FOLDER="$WORK_EXPERIMENTS_FOLDER"/Fibercup/Regular/"$EXPERIMENT"/"$num_flows"
 
   python TrackToLearn/trainers/NFsac_auto_train.py \
     $DEST_FOLDER \
