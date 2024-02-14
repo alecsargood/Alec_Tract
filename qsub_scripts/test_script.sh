@@ -1,6 +1,6 @@
 #$ -l tmem=40G
 #$ -l h_vmem=40G
-#$ -l h_rt=48:00:00
+#$ -l h_rt=10:00:00
 
 #$ -S /bin/bash
 #$ -j y
@@ -39,7 +39,7 @@ validation_dataset_file=$WORK_DATASET_FOLDER/datasets/${VALIDATION_SUBJECT_ID}/$
 reference_file=$WORK_DATASET_FOLDER/datasets/${VALIDATION_SUBJECT_ID}/masks/${VALIDATION_SUBJECT_ID}_wm.nii.gz
 
 # RL params
-max_ep=10 # Chosen empirically
+max_ep=5 # Chosen empirically
 log_interval=1 # Log at n episodes
 lr=0.00005 # Learning rate
 gamma=0.75 # Gamma for reward discounting
@@ -49,10 +49,10 @@ alpha=0.2
 prob=0.1 # Noise to add to make a prob output. 0 for deterministic
 
 # Env parameters
-npv=100 # Seed per voxel
+npv=10 # Seed per voxel
 theta=30 # Maximum angle for streamline curvature
 
-Num_Flows=(2)
+Num_Flows=(0)
 
 bonus=0
 EXPERIMENT=test
@@ -66,7 +66,7 @@ do
 
   DEST_FOLDER="$WORK_EXPERIMENTS_FOLDER"/"Fibercup"/"$EXPERIMENT"/"$num_flows"
 
-  python TrackToLearn/trainers/NFsac_auto_train.py \
+  python TrackToLearn/trainers/NFsac_auto_train_test.py \
     $DEST_FOLDER \
     "$EXPERIMENT" \
     "$ID" \
@@ -81,7 +81,6 @@ do
     --lr=${lr} \
     --gamma=${gamma} \
     --alpha=${alpha} \
-    --num_flows=${num_flows} \
     --rng_seed=${rng_seed} \
     --npv=${npv} \
     --theta=${theta} \

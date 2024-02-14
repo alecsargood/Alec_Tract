@@ -4,11 +4,10 @@ import torch
 
 import torch.nn.functional as F
 import torch.autograd as autograd
-
 from typing import Tuple
 
 from TrackToLearn.algorithms.sac import SAC
-from TrackToLearn.algorithms.shared.offpolicy import SACActorCritic
+from TrackToLearn.algorithms.shared.NFoffpolicytest import NFSACActorCritic
 from TrackToLearn.algorithms.shared.replay import OffPolicyReplayBuffer
 
 
@@ -16,7 +15,7 @@ LOG_STD_MAX = 2
 LOG_STD_MIN = -20
 
 
-class SACAuto(SAC):
+class NFSACAuto(SAC):
     """
     The sample-gathering and training algorithm.
     Based on
@@ -40,6 +39,7 @@ class SACAuto(SAC):
         input_size: int,
         action_size: int,
         hidden_dims: int,
+        num_flows: int,
         lr: float = 3e-4,
         gamma: float = 0.99,
         alpha: float = 0.2,
@@ -47,7 +47,7 @@ class SACAuto(SAC):
         rng: np.random.RandomState = None,
         device: torch.device = "cuda:0",
     ):
-        """
+        """8
         Parameters
         ----------
         input_size: int
@@ -80,12 +80,12 @@ class SACAuto(SAC):
         self.gamma = gamma
         self.device = device
         self.n_actors = n_actors
-
+        self.num_flows = num_flows,
         self.rng = rng
 
         # Initialize main policy
-        self.policy = SACActorCritic(
-            input_size, action_size, hidden_dims, device,
+        self.policy = NFSACActorCritic(
+            input_size, action_size, hidden_dims, num_flows, device,
         )
 
         # Auto-temperature adjustment
@@ -156,7 +156,10 @@ class SACAuto(SAC):
 
             a.requires_grad_(True)
             q1, q2 = self.policy.critic(s, a)
+            q1.requires_grad_(True)
+            q2.requires_grad_(True)
             q_pi = torch.min(q1, q2)
+            q_pi.requires_grad_(True)
             score_func = autograd.grad(q_pi, a, torch.ones_like(q_pi), retain_graph=True)[0]
             phi = score_func.reshape(a.size())
             return phi
@@ -167,7 +170,7 @@ class SACAuto(SAC):
                 a = a + da*phi
             a.requires_grad_(True) 
             return a
-        
+
         self.total_it += 1
 
         # Sample replay buffer
@@ -175,25 +178,28 @@ class SACAuto(SAC):
             replay_buffer.sample(batch_size)
 
         pi, logp_pi = self.policy.act(state)
-        N = 50
+        N = 500
         da = 0.01
         pi.requires_grad_(True)
         pi = svgd(pi, state, N, da)
-        pi = self.policy.actor.output_activation(pi)        
+        pi = self.policy.actor.output_activation(pi)
         alpha_loss = -(self.log_alpha * (
             logp_pi + self.target_entropy).detach()).mean()
+        
         alpha = self.log_alpha.exp()
 
+        
         q1, q2 = self.policy.critic(state, pi)
         q_pi = torch.min(q1, q2)
 
         # Entropy-regularized policy loss
         actor_loss = (alpha * logp_pi - q_pi).mean()
-
         with torch.no_grad():
             # Target actions come from *current* policy
             next_action, logp_next_action = self.policy.act(next_state)
-
+            next_action.requires_grad_(True)
+            next_action = svgd(next_action, next_state, N, da)
+            next_action = self.policy.actor.output_activation(next_action)
             # Compute the target Q value
             target_Q1, target_Q2 = self.target.critic(
                 next_state, next_action)

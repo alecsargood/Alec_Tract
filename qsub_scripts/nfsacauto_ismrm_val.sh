@@ -4,7 +4,7 @@
 
 #$ -S /bin/bash
 #$ -j y
-#$ -N ismrm_val
+#$ -N ismrm_4b5_16
 #$ -wd /cluster/project2/CU-MONDAI/Alec_Tract/TrackToLearn
 
 #$ -l gpu=true
@@ -20,27 +20,30 @@ source /share/apps/source_files/cuda/cuda-11.0.source
 mkdir -p /scratch0/asargood/$JOB_ID
 
 base_dir=/cluster/project2/CU-MONDAI/Alec_Tract
-
-experiment=ismrm_2layer
-id=$(date +"%F-%H_%M_%S")0
 dataset=${base_dir}/datasets/ismrm2015/ismrm2015.hdf5
 subject_id=ismrm2015
 seed_mask=${base_dir}/datasets/ismrm2015/maps/interface.nii.gz
-policy=${base_dir}/experiments/${experiment}/1111/model
-hyperparams=${policy}/hyperparameters.json
+experiment=nf_seed4_bonus5
+Num_Flows=(16) 
 scoring_data=${base_dir}/datasets/ismrm2015/scoring_data
 
-path=${base_dir}/experiments/${experiment}/${id}/validate
+for num_flows in "${Num_Flows[@]}"
+do
 
-mkdir -p ${path}
-mkdir -p ${path}/tractometer
+    policy=${base_dir}/experiments/ISMRM/${experiment}/${num_flows}/model
+    hyperparams=${policy}/hyperparameters.json
 
-python3 ${base_dir}/TrackToLearn/TrackToLearn/runners/ttl_validation.py ${path} ${experiment} ${id} ${dataset} ${subject_id} ${seed_mask} ${policy} \
-${hyperparams} --scoring_data ${scoring_data} --npv=300 
+    path=${base_dir}/experiments/${experiment}/${num_flows}/validate
 
-${base_dir}/TrackToLearn/scripts/run_tractometer.sh ${path}/tractogram_${experiment}_${id}_${subject_id}.trk ${scoring_data} ${path}/tractometer
+    mkdir -p ${path}
+    mkdir -p ${path}/tractometer
 
+    python3 ${base_dir}/TrackToLearn/TrackToLearn/runners/ttl_validation.py ${path} ${experiment} ${num_flows} ${dataset} ${subject_id} ${seed_mask} ${policy} \
+    ${hyperparams} --scoring_data ${scoring_data} --npv=50 
 
+    ${base_dir}/TrackToLearn/scripts/run_tractometer.sh ${path}/tractogram_${experiment}_${num_flows}_${subject_id}.trk ${scoring_data} ${path}/tractometer
+
+done
 function finish {
     rm -rf /scratch0/asargood/$JOB_ID
 }

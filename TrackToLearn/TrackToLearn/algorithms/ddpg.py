@@ -168,6 +168,7 @@ class DDPG(RLAlgorithm):
 
             # Select action according to policy + noise for exploration
             action = self.sample_action(state)
+            action = np.tanh(action)
 
             self.t += action.shape[0]
             # Perform action
@@ -242,7 +243,7 @@ class DDPG(RLAlgorithm):
         with torch.no_grad():
             # Select action according to policy and add noise
             noise = torch.randn_like(action) * (self.action_std * 2)
-            next_action = self.target.actor(next_state) + noise
+            next_action = self.policy.actor.output_activation(self.target.actor(next_state)) + noise
 
             # Compute the target Q value
             target_Q = self.target.critic(
@@ -258,7 +259,7 @@ class DDPG(RLAlgorithm):
 
         # Optimize the critic
         self.critic_optimizer.zero_grad()
-        critic_loss.backward()
+        critic_loss.backward() 
         self.critic_optimizer.step()
 
         # Compute actor loss

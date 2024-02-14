@@ -55,7 +55,7 @@ class Actor(nn.Module):
         Outputs an un-noisy un-normalized action
         """
         p = self.layers(state)
-        #p = self.output_activation(p)
+        p = self.output_activation(p)
 
         return p
 
@@ -171,7 +171,7 @@ class Critic(nn.Module):
         return q1
 
 
-class DoubleCritic(Critic):
+class DoubleCritic_test(Critic):
     """ Critic module that takes in a pair of state-action and outputs its
 5   q-value according to the network's q function. TD3 uses two critics
     and takes the lowest value of the two during backprop.
@@ -194,7 +194,7 @@ class DoubleCritic(Critic):
                 String representing layer widths
 
         """
-        super(DoubleCritic, self).__init__(
+        super(DoubleCritic_test, self).__init__(
             state_dim, action_dim, hidden_dims)
 
         self.hidden_layers = format_widths(hidden_dims)
@@ -208,6 +208,7 @@ class DoubleCritic(Critic):
         """ Forward propagation of the actor.
         Outputs a q estimate from both critics
         """
+
         q1_input = torch.cat([state, action], -1)
         q2_input = torch.cat([state, action], -1)
 
@@ -384,7 +385,7 @@ class TD3ActorCritic(ActorCritic):
             state_dim, action_dim, hidden_dims,
         ).to(device)
 
-        self.critic = DoubleCritic(
+        self.critic = DoubleCritic_test(
             state_dim, action_dim, hidden_dims,
         ).to(device)
 
@@ -417,7 +418,7 @@ class SACActorCritic(ActorCritic):
             state_dim, action_dim, hidden_dims,
         ).to(device)
 
-        self.critic = DoubleCritic(
+        self.critic = DoubleCritic_test(
             state_dim, action_dim, hidden_dims,
         ).to(device)
 

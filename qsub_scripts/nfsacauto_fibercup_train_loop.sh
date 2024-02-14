@@ -4,7 +4,7 @@
 
 #$ -S /bin/bash
 #$ -j y
-#$ -N nf_seed7_bonus5
+#$ -N nf_seeds_short
 #$ -wd /cluster/project2/CU-MONDAI/Alec_Tract/TrackToLearn
 
 #$ -l gpu=true
@@ -39,7 +39,7 @@ validation_dataset_file=$WORK_DATASET_FOLDER/datasets/${VALIDATION_SUBJECT_ID}/$
 reference_file=$WORK_DATASET_FOLDER/datasets/${VALIDATION_SUBJECT_ID}/masks/${VALIDATION_SUBJECT_ID}_wm.nii.gz
 
 # RL params
-max_ep=1500 # Chosen empirically
+max_ep=1000 # Chosen empirically
 log_interval=50 # Log at n episodes
 lr=0.00005 # Learning rate
 gamma=0.75 # Gamma for reward discounting
@@ -52,16 +52,16 @@ prob=0.1 # Noise to add to make a prob output. 0 for deterministic
 npv=100 # Seed per voxel
 theta=30 # Maximum angle for streamline curvature
 
-Num_Flows=(8 16 32)
+Num_Flows=(0)
 
-bonus=5
-EXPERIMENT=nf_seed7_bonus5
+bonus=0
+EXPERIMENT=nf_seeds_short
 
 ID=$(date +"%F-%H_%M_%S")
 
-rng_seed=7777
-
-for num_flows in "${Num_Flows[@]}"
+rng_seeds=(1222 1333 1444)
+num_flows=0
+for rng_seed in "${rng_seeds[@]}"
 do
 
   DEST_FOLDER="$WORK_EXPERIMENTS_FOLDER"/Fibercup/Regular/"$EXPERIMENT"/"$num_flows"
