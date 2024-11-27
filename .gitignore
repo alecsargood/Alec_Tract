@@ -1,7 +1,13 @@
-datasets
+all_qsub_scripts
 
 logs
 
-experiments
+VAE
 
-TrackToLearn/joc_ttl_test/*
+NFG
+
+Project/Data
+
+Project/HDF5_Data
+
+Project/results
